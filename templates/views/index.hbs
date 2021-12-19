@@ -1,0 +1,82 @@
+
+<div class="wrap-container">
+    <div class="product-container">
+        {{#each data}}
+            <div class="product-item" id="{{this.id}}" product-details="{{this.brand}} {{this.category}} {{this.product}} {{this.barcode}}">
+                <div class="product-img">
+                    <img src="/uploads/{{this.photo}}" alt="">
+                </div>
+                <div class="product-detail">
+                    <p class="product-name text-wrapper text-subtitle">
+                        {{this.product}}
+                    </p>
+                    <div class="product-btn">
+                        <p class="product-price text-title currency-format">{{this.price}}</p>
+                        <button class="btn-add-to-cart"><i class="fa fa-cart-arrow-down text-subtitle" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+            </div>
+        {{/each}}
+    </div>
+</div>
+
+{{#contentFor "script"}}
+<script>
+    $(document).ready(function() {
+        currencyFormat(0)
+        listProducts = $('.product-container').children()
+
+        $('.search-input').on('input', function() {
+            input = $(this).val()
+            searchProducts(input, listProducts, 'product-details')
+        })
+
+        $('.btn-add-to-cart').on('click', function() {
+            id = $(this).closest('.product-item').attr('id')
+            product = $(this).closest('.product-item').find('.product-name').text()
+            price = $(this).closest('.product-item').find('.product-price').text()
+            $('.list-items').append(addItem(id, product, price, 1))
+
+            alertMsg('Added "'+product+'" to cart', 3000)
+            $('.shopping-item').text($('.list-items').children().length)
+
+            total = accounting.unformat($('#total-cart').text()) + accounting.unformat(price)
+            $('#total-cart').text(currencyUSD(total))
+        })
+
+        $(document).on('click', '.close-symbol', function(e) {
+            total = $('#total-cart').text()
+            price = $(this).closest('tr').find('.item-price').text()
+            qty = $(this).closest('tr').find('#item-quantity').val()
+
+            total = accounting.unformat(total) - (accounting.unformat(price) * qty)
+            $('#total-cart').text(currencyUSD(total))
+
+            id = $(this).closest('tr').fadeOut('normal', function() {
+                this.remove()
+                $('.shopping-item').text($('.list-items').children().length)
+            })
+        })
+
+        $(document).on('input', '#item-quantity', function() {
+            total = $('#total-cart').text()
+            price = $(this).closest('tr').find('.item-price').text()
+            qty = $(this).val()
+            
+            if (qty < 0 || qty == '') {
+                qty = 0
+            }
+
+            subtotal = $(this).closest('tr').find('#item-total').val()
+
+            newtotal = accounting.unformat(price) * qty
+
+            total = accounting.unformat(total) - subtotal + newtotal
+
+
+            $(this).closest('tr').find('#item-total').val(newtotal)
+            $('#total-cart').text(currencyUSD(total))
+        })
+    })
+</script>
+{{/contentFor}}

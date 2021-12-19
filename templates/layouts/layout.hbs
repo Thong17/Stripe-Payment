@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.css" integrity="sha512-5A8nwdMOWrSz20fDsjczgUidUBR8liPYU+WymTZP1lmY9G6Oc7HlZv156XqnsgNUzTyMefFTcsFH/tnJE/+xBg==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="css/dist/style.css">
+    <script src="js/accounting.js"></script>
+    {{{block "link"}}}
+</head>
+<body>
+    <div class="loading">
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>
+    <header>
+        <div class="alert-msg">
+            <span id="msg-text">Here is message</span>
+        </div>
+        <nav>
+            <div class="navigation-bar">
+                <span></span><span></span><span></span>
+            </div>
+
+            <div class="search-btn flex-between notranslate">
+                <input type="text" class="search-input input-color" placeholder="Search">
+                <i class="fa fa-search" aria-hidden="true"></i>
+            </div>
+
+            <div class="dropdown">
+                <button class="btn btn-user" type="button" id="menu1" data-toggle="dropdown">
+                    <span class="shopping-cart"><i class="fa fa-shopping-cart" aria-hidden="true"></i><span class="shopping-item">0</span></span>
+                    <span>{{username}}</span>
+                </button>
+                <ul class="dropdown-menu" role="menu" aria-labelledby="menu1">
+                    <li>
+                        <table class="list-carts">
+                            <tbody class="list-items"></tbody>
+                        </table>
+                        <div class="mt-2"><span class="mr-2 font-weight-normal">Total:</span><span id="total-cart">$0</span></div>
+                    </li>
+                    <li><div class="dropdown-divider"></div></li>
+                    <li style="display: flex;">
+                        <button class="btn btn-block border mr-2" id="checkout">Check Out</button>
+                        <form action="/auth/logout?_method=DELETE" id="logout" method="post">
+                            <button type="submit" class="btn btn-block btn-danger">Logout</button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        
+        <main>
+            {{{body}}}
+        </main>
+    </header>
+    <footer>
+        <p class="color-text" style="font-size: 13px;">Copyright &copy; 2021 All Rights Reserved by
+            <a href="#" class="notranslate">Thong</a>
+        </p>
+    </footer>
+    <script>
+        $(document).ready(function() {
+            i = 0
+            $(window).on('scroll', function () {
+                $('nav').toggleClass('navbar-hide', $(window).scrollTop() > i)
+                i = $(window).scrollTop()
+            })
+
+            setTimeout(() => {
+                $('.loading div').fadeOut('slow', function () {
+                    $('.loading').fadeOut('slow')
+                })
+            }, '100')
+
+            $(document).on('click', 'li', function(e) {
+                e.stopImmediatePropagation()
+            })
+
+            // Stripe payment
+            $('#checkout').on('click', function(e) {
+                arrObj = []
+
+                $(this).html('<img src="/svg/loading.svg">')
+
+                Array.from($('.list-items').children()).forEach(item => {
+                    qty = $(item).find('#item-quantity').val()
+                    if (qty > 0) {
+                        obj = {
+                            id: $(item).attr('item-id'),
+                            qty: parseInt(qty)
+                        }
+                        arrObj.push(obj)
+                    }
+                })
+                if (arrObj.length) {
+                    fetch('/payment/checkout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            items: arrObj
+                        })
+                    }).then(res => {
+                        if (res.ok) return res.json()
+                        return res.json().then(json => Promise.reject(json))
+                    }).then(({ url }) => {
+                        window.location = url
+                    }).catch(e => {
+                        $(this).text('Check Out')
+                        console.error(e.error)
+                    })
+                } else {
+                    $(this).text('Check Out')
+                }
+                e.stopPropagation()
+            })
+        })
+
+        const searchProducts = (input, list, attr) => {
+            this.input = input.toUpperCase();
+            this.list = list
+            this.attr = attr
+
+            Array.from(this.list).forEach((l, i) => {
+                var value = $(l).attr(this.attr).toUpperCase()
+                if (value.indexOf(this.input) > -1) {
+                    $(l).css('display', 'block')
+                } else {
+                    $(l).css('display', 'none')
+                }
+            })
+        }
+
+        const addItem = (id, product, price, qty) => {
+            return `<tr item-id=`+id+`>
+                        <td class="item-product">-`+product+`</td>
+                        <td class="item-price">`+price+`</td>
+                        <td><input class="input-quantity" type="number" name="item-quantity" id="item-quantity" value="`+qty+`"></td>
+                        <td><input type="hidden" id="item-total" value="`+accounting.unformat(price)*qty+`"><span class="close-symbol">+</span></td>
+                    </tr>`
+        }
+
+        const alertMsg = (msg, duration) => {
+            $('.alert-msg').find('#msg-text').text(msg)
+            
+            if ($('.alert-msg').hasClass('show')) {
+                clearTimeout(timer)
+            } 
+
+            $('.alert-msg').addClass('show')
+            timer = setTimeout(() => {
+                $('.alert-msg').removeClass('show')
+            }, duration)
+        }
+
+        const currencyUSD = (value) => {
+            if (parseFloat(value) % 1 == 0) {
+                decimal = 0
+            } else {
+                if ((parseFloat(text) * 1).toString().split('.')[1].length > 2) {
+                    decimal = 3
+                } else {
+                    decimal = 2
+                }
+            }
+
+            return accounting.formatMoney(value, {
+                precision: decimal,
+                format: {
+                    pos: "%s%v", 
+                    neg: "-%s%v",
+                    zero: "%s%v"
+                }
+            })
+        }
+
+        const currencyFormat = (zero) => {
+            if (zero != undefined) {
+                zero = '%v%s'
+            } else {
+                zero = '...'
+            }
+
+            var numbers = document.querySelectorAll('.currency-format')
+
+            Array.from(numbers).forEach(n => {
+                var text = $(n).text()
+                if (parseFloat(text) % 1 == 0) {
+                    decimal = 0
+                } else {
+                    if ((parseFloat(text) * 1).toString().split('.')[1].length > 2) {
+                        decimal = 3
+                    } else {
+                        decimal = 2
+                    }
+                }
+                $(n).text(accounting.formatMoney(text, {
+                    precision: decimal,
+                    format: {
+                        pos: "%s%v", 
+                        neg: "-%s%v", 
+                        zero: zero
+                    }
+                }))
+
+                $(n).attr('title', accounting.formatMoney(Math.round(text * 4000 / 100) * 100, {
+                    precision: 0,
+                    format: {
+                        pos: "%v\u17DB",
+                        neg: "-%v\u17DB",
+                        zero: zero
+                    }
+                }))
+            })
+        }
+    </script>
+    {{{block "script"}}}
+</body>
+</html>
